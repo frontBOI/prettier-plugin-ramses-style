@@ -1,0 +1,38 @@
+{
+  "name": "@frontboi/prettier-plugin-ramses-style",
+  "version": "1.0.0",
+  "private": true,
+  "main": "./src/index.js",
+  "type": "module",
+  "repository": "https://github.com/frontBOI/prettier-plugin-ramses-style",
+  "description": "Pretty your javascript and typescript project to Ramses style.",
+  "license": "MIT",
+  "scripts": {
+    "prepare": "husky",
+    "build": "tsc",
+    "prettify": "npm run build && prettier --plugin ./dist/index.js test/fixtures/preserve-comments.js",
+    "test": "NODE_OPTIONS=--experimental-vm-modules jest",
+    "prepublishOnly": "npx tsc"
+  },
+  "dependencies": {
+    "prettier": "^3.3.3"
+  },
+  "devDependencies": {
+    "eslint": "^9.9.1",
+    "husky": "^9.1.5",
+    "jest": "^29.7.0",
+    "lint-staged": "^15.2.10",
+    "typescript": "^5.5.4"
+  },
+  "author": {
+    "name": "Tom Blanchet",
+    "email": "contact@tomblanchet.fr"
+  },
+  "keywords": [
+    "ramses",
+    "javascript",
+    "typescript",
+    "plugin",
+    "prettier"
+  ]
+}
