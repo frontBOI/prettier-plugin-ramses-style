@@ -1,10 +1,13 @@
 {
   "name": "@frontboi/prettier-plugin-ramses-style",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "main": "./dist/index.js",
   "type": "module",
   "repository": "https://github.com/frontBOI/prettier-plugin-ramses-style",
   "description": "Pretty your javascript and typescript project to Ramses style.",
+  "files": [
+    "dist"
+  ],
   "license": "MIT",
   "scripts": {
     "prepare": "husky",
