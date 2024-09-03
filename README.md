@@ -16,6 +16,10 @@
 
 A Prettier plugin to help you format Javascript and Typescript projects in a Ramses style easily.
 
+# Intro
+
+Prettier is an opinionated code formatter. It enforces a consistent style by parsing your code and re-printing it with its own rules that take the maximum line length into account, wrapping code when necessary.
+
 # Install
 
 ```sh
@@ -29,10 +33,6 @@ You then need to configure your `.prettierrc.json`:
   "plugins": ["@frontboi/prettier-plugin-ramses-style"]
 }
 ```
-
-# Intro
-
-Prettier is an opinionated code formatter. It enforces a consistent style by parsing your code and re-printing it with its own rules that take the maximum line length into account, wrapping code when necessary.
 
 # How it works
 

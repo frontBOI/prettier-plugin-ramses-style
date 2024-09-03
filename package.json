@@ -1,7 +1,6 @@
 {
   "name": "@frontboi/prettier-plugin-ramses-style",
-  "version": "1.0.0",
-  "private": true,
+  "version": "1.0.1",
   "main": "./src/index.js",
   "type": "module",
   "repository": "https://github.com/frontBOI/prettier-plugin-ramses-style",
