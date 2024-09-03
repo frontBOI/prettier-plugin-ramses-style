@@ -1,7 +1,7 @@
 {
   "name": "@frontboi/prettier-plugin-ramses-style",
-  "version": "1.0.1",
-  "main": "./src/index.js",
+  "version": "1.0.2",
+  "main": "./dist/index.js",
   "type": "module",
   "repository": "https://github.com/frontBOI/prettier-plugin-ramses-style",
   "description": "Pretty your javascript and typescript project to Ramses style.",
