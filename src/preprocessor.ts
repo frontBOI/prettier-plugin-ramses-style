@@ -1,10 +1,7 @@
-import _generate from '@babel/generator'
-import babelParser from '@babel/parser'
-import _traverse from '@babel/traverse'
-import { JSXAttribute, ObjectProperty } from '@babel/types'
-
-const traverse = _traverse.default
-const generate = _generate.default
+import { ObjectProperty, JSXAttribute } from '@babel/types'
+const generate = require('@babel/generator').default
+const babelParser = require('@babel/parser')
+const traverse = require('@babel/traverse').default
 
 /**
  * Permet de calculer la taille d'une propriété d'un objet, en comptant la taille de son nom et celle de sa valeur
@@ -25,9 +22,7 @@ function computePropertyLength(property: ObjectProperty | JSXAttribute) {
   else if (property.value.type === 'ArrowFunctionExpression') {
     const nbLines = Math.abs((property.loc?.end.line || 0) - (property.loc?.start.line || 0))
     retval = 1000 + nbLines
-  } 
-  
-  else {
+  } else {
     const fieldNameLength = Math.abs((property.key.end || 0) - (property.key.start || 0))
     const valueLength = Math.abs((property.value.end || 0) - (property.value.start || 0))
     retval = fieldNameLength + valueLength

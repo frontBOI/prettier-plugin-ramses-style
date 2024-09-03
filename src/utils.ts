@@ -4,7 +4,7 @@ import { JSXAttribute, ObjectProperty } from '@babel/types'
  * Permet de visualiser simplement une propriété et afficher les informations importantes pour ce projet
  * @param property la propriété
  */
-export function debugObjectProperty(property: ObjectProperty) {
+function debugObjectProperty(property: ObjectProperty) {
   if (property.key.type === 'Identifier') {
     if (property.value.type === 'ArrowFunctionExpression') {
       console.log(`${property.key.type} | ${property.value.type}`)
@@ -28,7 +28,7 @@ export function debugObjectProperty(property: ObjectProperty) {
  * Permet de visualiser simplement une propriété JSX et afficher les informations importantes pour ce projet
  * @param attribute l'attribut
  */
-export function debugJSXAttribute(attribute: JSXAttribute) {
+function debugJSXAttribute(attribute: JSXAttribute) {
   if (attribute.value?.type === 'JSXExpressionContainer') {
     if (attribute.value?.expression.type === 'MemberExpression') {
       console.log(
@@ -42,4 +42,9 @@ export function debugJSXAttribute(attribute: JSXAttribute) {
   } else if (!attribute.value) {
     console.log(`"${attribute.name.name}" = "${attribute.value}"`)
   }
+}
+
+module.exports = {
+  debugJSXAttribute,
+  debugObjectProperty,
 }

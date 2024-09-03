@@ -1,12 +1,12 @@
-import babelParsers from 'prettier/parser-babel'
+const { parsers } = require('prettier/parser-babel')
 
-import typescriptParsers from 'prettier/parser-typescript'
-import { preprocessor } from './preprocessor.js'
+const typescriptParsers = require('prettier/parser-typescript')
+const { preprocessor } = require('./preprocessor.js')
 
-export default {
+module.exports = {
   parsers: {
     babel: {
-      ...babelParsers.parsers.babel,
+      ...parsers.babel,
       preprocess: preprocessor,
     },
     typescript: {
