@@ -1,6 +1,6 @@
 {
   "name": "@frontboi/prettier-plugin-ramses-style",
-  "version": "1.0.4",
+  "version": "1.0.6",
   "main": "./dist/index.js",
   "repository": "https://github.com/frontBOI/prettier-plugin-ramses-style",
   "description": "Pretty your javascript and typescript project to Ramses style.",
@@ -11,7 +11,7 @@
   "scripts": {
     "prepare": "husky",
     "build": "tsc",
-    "prettify": "npm run build && prettier --plugin ./dist/index.js test/fixtures/preserve-comments.js",
+    "prettify": "npm run build && prettier --plugin ./dist/index.js test/fixtures/typescript.ts",
     "test": "NODE_OPTIONS=--experimental-vm-modules jest",
     "prepublishOnly": "npx tsc"
   },

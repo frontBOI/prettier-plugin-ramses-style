@@ -40,6 +40,8 @@ A Prettier plugin must first parse the source code of the target language
 into a traversable data structure (Usually an **A**bstract **S**yntax **T**ree)
 and then print out that data structure in a "pretty" style.
 
+‼️ A prettier plugin **MUST** be developped in `CommonJS`.
+
 # Useful links
 
 [AST explorer](https://astexplorer.net)

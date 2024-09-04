@@ -3,6 +3,7 @@ import path from 'path'
 import prettier from 'prettier'
 import { expect, test, beforeAll } from '@jest/globals'
 import { execSync } from 'child_process'
+import { removeUnwantedLines } from './helper'
 
 const fixturesDir = './test/fixtures'
 const files = fs.readdirSync(path.resolve(fixturesDir))

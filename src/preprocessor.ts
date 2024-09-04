@@ -1,14 +1,23 @@
-import { ObjectProperty, JSXAttribute } from '@babel/types'
+import {
+  ObjectProperty,
+  JSXAttribute,
+  isSpreadElement,
+  ArrayExpression,
+  StringLiteral,
+  NumericLiteral,
+} from '@babel/types'
 const generate = require('@babel/generator').default
 const babelParser = require('@babel/parser')
 const traverse = require('@babel/traverse').default
+
+type HandledNodeType = ObjectProperty | JSXAttribute | ArrayExpression | StringLiteral | NumericLiteral
 
 /**
  * Permet de calculer la taille d'une propriété d'un objet, en comptant la taille de son nom et celle de sa valeur
  * @param property la propriété dont on veut calculer la taille
  * @returns la taille de la propriété ou 0 si on n'y arrive pas
  */
-function computePropertyLength(property: ObjectProperty | JSXAttribute) {
+function computePropertyLength(property: HandledNodeType) {
   let retval = 0
 
   if (property.type === 'JSXAttribute') {
@@ -16,6 +25,17 @@ function computePropertyLength(property: ObjectProperty | JSXAttribute) {
     const valueLength = Math.abs((property.value?.end || 0) - (property.value?.start || 0))
 
     return fieldNameLength + valueLength
+  }
+
+  // une chaîne de caractères
+  else if (property.type === 'StringLiteral' || property.type === 'NumericLiteral') {
+    retval = Math.abs((property.end || 0) - (property.start || 0))
+  }
+
+  // éléments d'un tableau
+  else if (property.type === 'ArrayExpression') {
+    const valueLength = Math.abs((property.end || 0) - (property.start || 0))
+    retval = valueLength
   }
 
   // les fonctions sont reclassées en dernières, et elles sont triées entre elles selon le nombre de lignes qu'elles occupent
@@ -37,26 +57,34 @@ function computePropertyLength(property: ObjectProperty | JSXAttribute) {
  * @param b le second champ à comparer
  * @returns l'ordre de tri
  */
-function sortByLength(a: ObjectProperty, b: ObjectProperty) {
-  if (a.key.type === 'Identifier' && b.key.type === 'Identifier') {
-    return computePropertyLength(a) - computePropertyLength(b)
-  }
-
-  return 0
+function sortByLength(a: HandledNodeType, b: HandledNodeType) {
+  return computePropertyLength(a) - computePropertyLength(b)
 }
 
 /**
- * Fonction permettant de trier des props JSXX de la plus courte à la plus longue.
- * @param a la première props JSX à comparer
- * @param b la seconde props JSX à comparer
- * @returns l'ordre de tri
+ * Permet de trier les propriétés d'un arbre AST par ordre de longueur croissante.
+ * @param properties les nœuds AST à trier
+ * @returns les nœuds triés
  */
-function sortByJSXLength(a: JSXAttribute, b: JSXAttribute) {
-  if (a.name.type === 'JSXIdentifier' && b.name.type === 'JSXIdentifier') {
-    return computePropertyLength(a) - computePropertyLength(b)
+function sortProperties(properties: HandledNodeType[]) {
+  // sauvegarde de l'index des spread elements pour les remettre à la même place ensuite
+  const spreadElements: Record<string, ObjectProperty> | Record<string, JSXAttribute> = {}
+  for (let i = 0; i < properties.length; i++) {
+    const currentObject = properties[i]
+    if (isSpreadElement(currentObject)) {
+      spreadElements[i] = currentObject
+    }
   }
 
-  return 0
+  // tri par longueur croissante
+  const sortedElements = properties.filter(e => !Object.values(spreadElements).includes(e)).sort(sortByLength)
+
+  // réinsertion des spread elements à leur place
+  for (const [index, node] of Object.entries(spreadElements)) {
+    sortedElements.splice(+index, 0, node)
+  }
+
+  return sortedElements
 }
 
 /**
@@ -65,6 +93,7 @@ function sortByJSXLength(a: JSXAttribute, b: JSXAttribute) {
  * Les champs concernés sont les suivants:
  * - les champs d'un objet (destructuration, retour de fonction)
  * - les paramètres d'une fonction
+ * - les éléments d'un tableau
  * @param code le code à traiter
  * @param options options passées à Prettier
  * @returns le code modifié
@@ -77,33 +106,42 @@ export function preprocessor(code: string, options: any) {
 
   traverse(ast, {
     // éléments d'un objet (ex: déclaration de variable, retour de fonction)
-    ObjectExpression(path) {
+    ObjectExpression(path: any) {
       const objectElements = path.node.properties as ObjectProperty[]
-      const sortedElements = objectElements.sort(sortByLength)
+      const sortedElements = sortProperties(objectElements)
       path.node.properties = sortedElements
     },
 
     // destructuration d'objet
-    ObjectPattern(path) {
+    ObjectPattern(path: any) {
       const objectElements = path.node.properties as ObjectProperty[]
-      const sortedElements = objectElements.sort(sortByLength)
+      const sortedElements = sortProperties(objectElements)
       path.node.properties = sortedElements
     },
 
+    // les éléments d'un tableau
+    ArrayExpression(path: any) {
+      const objectElements = path.node.elements as ArrayExpression[]
+      const sortedElements = sortProperties(objectElements)
+      path.node.elements = sortedElements
+    },
+
     // JSX props
-    JSXOpeningElement(path) {
+    JSXOpeningElement(path: any) {
       const jsxAttributes = path.node.attributes as JSXAttribute[]
-      const sortedAttributes = jsxAttributes.sort(sortByJSXLength)
+      const sortedAttributes = sortProperties(jsxAttributes)
       path.node.attributes = sortedAttributes
     },
   })
 
-  let newCode = generate(ast, {
-    retainLines: true,
+  const newCode = generate(ast, {
+    retainLines: false,
   }).code
 
-  // la manipulation de l'ordre des éléments introduit des espaces en trop et cela sera mal compris par Prettier
-  newCode = newCode.replace(/,(\n)+/g, ',')
+  // DONE: ajouter gestion du spread operator
+  // DONE: bien gérer les commentaires
+  // TODO: les types Typescript disparaissent après le traitement !
+  // DONE: gérer une map (mondial relay -> api_v1/lib/rules)
 
   return newCode
 }
