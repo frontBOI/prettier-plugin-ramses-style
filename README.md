@@ -42,6 +42,13 @@ and then print out that data structure in a "pretty" style.
 
 ‼️ A prettier plugin **MUST** be developped in `CommonJS`.
 
+# Testing
+
+You can try this package on a file using this custom script:
+```sh
+npm run prettify -- test/fixtures/comments.js
+```
+
 # Useful links
 
 [AST explorer](https://astexplorer.net)
