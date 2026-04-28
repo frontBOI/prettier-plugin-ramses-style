@@ -1,5 +1,5 @@
 import { ArrayExpression, isSpreadElement, JSXAttribute, ObjectProperty } from '@babel/types'
-import { debugAST, HandledNodeType } from './utils'
+import { HandledNodeType } from './utils'
 
 const generate = require('@babel/generator').default
 const babelParser = require('@babel/parser')
@@ -94,17 +94,14 @@ function computePropertyLength(property: HandledNodeType) {
  * @param endLine nouvelle ligne de fin
  */
 function updateNodeLoc(node: any, startLine: number, endLine: number) {
-  // update node ------------------------------------
   node.loc.start.line = startLine
   node.loc.end.line = endLine
 
-  // update key -------------------------------------
   if (node.key?.loc) {
     node.key.loc.start.line = startLine
     node.key.loc.end.line = endLine
   }
 
-  // update value -----------------------------------
   if (node.value?.loc) {
     node.value.loc.start.line = startLine
     node.value.loc.end.line = endLine
@@ -188,7 +185,21 @@ function syncCommentsLocation(node: any) {
  * @param initialNode nœud de référence pour la première position à prendre en compte
  */
 function updateLoc(nodes: any[], initialNode: any) {
-  const initialNodeRealLine = (initialNode?.loc.start.line || 0) - (initialNode?.leadingComments?.length || 0) // la vraie ligne de début est celle sans les commentaires qui précèdent
+  if (nodes.length === 0) return
+
+  const allOnSameLine =
+    nodes.every(n => n.loc.start.line === nodes[0].loc.start.line) &&
+    nodes.every(n => getNodeNbLines(n) === 0)
+
+  if (allOnSameLine) {
+    const line = initialNode?.loc.start.line || nodes[0].loc.start.line
+    for (const node of nodes) {
+      updateNodeLoc(node, line, line)
+    }
+    return
+  }
+
+  const initialNodeRealLine = (initialNode?.loc.start.line || 0) - (initialNode?.leadingComments?.length || 0)
   let newStartLine = initialNodeRealLine
   let previousNodeNbLines = -1
 
@@ -203,7 +214,6 @@ function updateLoc(nodes: any[], initialNode: any) {
 
     updateNodeLoc(node, newStartLine, newEndLine)
 
-    // on garde l'éventuel commentaire de fin de ligne
     if (hasCommentOnSameLine) {
       node.trailingComments[0].loc.start.line = newEndLine
       node.trailingComments[0].loc.end.line = newEndLine
@@ -222,7 +232,6 @@ function updateLocWithComments(nodes: any[]) {
     const nbCommentsBefore = nodes[i].leadingComments?.length
     const nbCommentsAfter = nodes[i].trailingComments?.length
 
-    // si un noeud a des commentaires avant, il faut mettre à jour les lignes de ce noeud et de tous les noeuds suivants
     if (nbCommentsBefore > 0) {
       for (let j = i; j < nodes.length; j++) {
         const currentNode = nodes[j]
@@ -233,7 +242,6 @@ function updateLocWithComments(nodes: any[]) {
       }
     }
 
-    // si un noeu a des commentaires après, il faut mettre à jour les lignes uniquement des noeuds suivants
     if (nbCommentsAfter > 0) {
       for (let j = i + 1; j < nodes.length; j++) {
         const currentNode = nodes[j]
@@ -251,6 +259,37 @@ function updateLocWithComments(nodes: any[]) {
  * @param unsortedElements les nœuds AST à trier
  * @returns les nœuds triés
  */
+function colocateLeadingCommentsOfMultilineNodes(nodes: any[]) {
+  for (let i = 1; i < nodes.length; i++) {
+    const currentNode = nodes[i]
+    const previousNode = nodes[i - 1]
+
+    if (!currentNode.leadingComments?.length) continue
+    if (getNodeNbLines(currentNode) === 0) continue
+
+    const firstComment = currentNode.leadingComments[0]
+    if (firstComment.loc.start.line !== previousNode.loc.end.line) continue
+
+    const comment = { ...firstComment, isOnSameLine: true }
+    comment.loc.start.line = previousNode.loc.end.line
+    comment.loc.end.line = previousNode.loc.end.line
+
+    if (!previousNode.trailingComments) {
+      previousNode.trailingComments = []
+    }
+    previousNode.trailingComments.push(comment)
+
+    if (currentNode.leadingComments.length === 1) {
+      delete currentNode.leadingComments
+    } else {
+      currentNode.leadingComments.shift()
+    }
+
+    syncCommentsLocation(previousNode)
+    syncCommentsLocation(currentNode)
+  }
+}
+
 function sortProperties(unsortedElements: HandledNodeType[]) {
   correctEndLineComments(unsortedElements)
 
@@ -273,9 +312,8 @@ function sortProperties(unsortedElements: HandledNodeType[]) {
   )
 
   updateLoc(sortedElements, unsortedElements[0])
-  // debugNodes(sortedElements)
+  colocateLeadingCommentsOfMultilineNodes(sortedElements)
   updateLocWithComments(sortedElements)
-  // debugNodes(sortedElements)
 
   // réinsertion des spread elements à leur place
   for (const [index, node] of Object.entries(spreadElements)) {
@@ -292,21 +330,6 @@ function sortProperties(unsortedElements: HandledNodeType[]) {
   return sortedElements
 }
 
-// ! pas sûr que ce soit judicieux de faire ça...
-function adjustLineNumbers(ast) {
-  let previousNode: any | null = null
-
-  traverse(ast, {
-    enter(path: any) {
-      if (['ReturnStatement', 'IfStatement', 'FunctionDeclaration'].includes(path.node.type)) {
-        path.node.loc.start.line += 10
-        path.node.loc.end.line += 10
-      }
-
-      previousNode = path.node
-    },
-  })
-}
 
 /**
  * Fonction permettant de d'améliorer la syntaxe d'un code en triant des champs répartis ligne par ligne par ordre de longueur croissante:
@@ -320,13 +343,10 @@ function adjustLineNumbers(ast) {
  * @returns le code modifié
  */
 export function preprocessor(code: string, options: any) {
-  console.log(``)
   const ast = babelParser.parse(code, {
     plugins: ['jsx', 'typescript'],
     sourceType: 'module',
   })
-
-  adjustLineNumbers(ast)
 
   traverse(ast, {
     // éléments d'un objet (ex: déclaration de variable, retour de fonction)
@@ -354,21 +374,9 @@ export function preprocessor(code: string, options: any) {
     },
   })
 
-  debugAST(ast)
-
   const newCode = generate(ast, {
     retainLines: true,
   }).code
 
-  // DONE: ajouter gestion du spread operator
-  // DONE: bien gérer les commentaires
-  // DONE: gérer une map (mondial relay -> api_v1/lib/rules)
-  // DONE un espace est inséré après un commentaire bloc
-  // TODO: gérer le problème de suppression des retours à la ligne... (retainLines à true mais ça fait bugger)
-  // TODO: les types Typescript disparaissent après le traitement (mondial relay -> api_v1/index)
-  // TODO: les interfaces Typescript
-  // TODO: désactiver le sorting sur les objets avec des indices (mondial relay -> api_v1/lib/statusCodes)
-  // TODO: unknown type: "ChainExpression" (mondial relay -> parceShopSelector/index)
-
-  return newCode
+  return newCode.replace(/\n{3,}/g, '\n\n')
 }

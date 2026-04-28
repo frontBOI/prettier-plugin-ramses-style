@@ -55,7 +55,6 @@ function manyObjectProperties() {
     field12: 1,
     field10: 10000,
     field13: 99999999999,
-
     field14: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
     field20: 'a long string that is very long and should not be split into multiple lines',
     field15: [
@@ -90,7 +89,6 @@ function manyObjectProperties() {
       return b
     },
   }
-
   const {
     b,
     bb,
@@ -108,7 +106,6 @@ function manyObjectProperties() {
     bbbbbbbbbbbbbb,
     bbbbbbbbbbbbbbb,
   } = useLocalStorage()
-
   return {
     a,
     aa,
