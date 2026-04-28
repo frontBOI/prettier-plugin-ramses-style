@@ -64,19 +64,7 @@ function computePropertyLength(property: HandledNodeType) {
           return 2000 + nbLines
         }
       } else {
-        const fieldNameLength = getLength(property.key.start, property.key.end)
-        const valueLength = getLength(property.value.start, property.value.end)
-
-        // si on référence une variable par son nom, on ne compte qu'une fois le nom
-        if (
-          property.key.type === 'Identifier' &&
-          property.value.type === 'Identifier' &&
-          property.key.name === property.value.name
-        ) {
-          return fieldNameLength
-        } else {
-          return fieldNameLength + valueLength
-        }
+        return getLength(property.start, property.end)
       }
 
     case 'ObjectMethod':
