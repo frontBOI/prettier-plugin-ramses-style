@@ -1,5 +1,5 @@
-import { ArrayExpression, JSXAttribute, ObjectProperty, isSpreadElement } from '@babel/types'
-import { HandledNodeType, debugAST, debugNodes } from './utils'
+import { ArrayExpression, isSpreadElement, JSXAttribute, ObjectProperty } from '@babel/types'
+import { debugAST, HandledNodeType } from './utils'
 
 const generate = require('@babel/generator').default
 const babelParser = require('@babel/parser')
@@ -78,6 +78,9 @@ function computePropertyLength(property: HandledNodeType) {
           return fieldNameLength + valueLength
         }
       }
+
+    case 'ObjectMethod':
+      return 0
 
     default:
       throw `Impossible de calculer la taille de la propriété "${(property as any).type}"`
@@ -185,7 +188,7 @@ function syncCommentsLocation(node: any) {
  * @param initialNode nœud de référence pour la première position à prendre en compte
  */
 function updateLoc(nodes: any[], initialNode: any) {
-  const initialNodeRealLine = initialNode.loc.start.line - (initialNode.leadingComments?.length || 0) // la vraie ligne de début est celle sans les commentaires qui précèdent
+  const initialNodeRealLine = (initialNode?.loc.start.line || 0) - (initialNode?.leadingComments?.length || 0) // la vraie ligne de début est celle sans les commentaires qui précèdent
   let newStartLine = initialNodeRealLine
   let previousNodeNbLines = -1
 
@@ -262,7 +265,11 @@ function sortProperties(unsortedElements: HandledNodeType[]) {
 
   // tri par longueur croissante
   const sortedElements = JSON.parse(
-    JSON.stringify(unsortedElements.filter(e => !Object.values(spreadElements).includes(e)).sort(sortByLength)),
+    JSON.stringify(
+      unsortedElements
+        .filter(e => !Object.values(spreadElements).includes(e) && e.type !== 'ObjectMethod')
+        .sort(sortByLength),
+    ),
   )
 
   updateLoc(sortedElements, unsortedElements[0])
@@ -275,7 +282,30 @@ function sortProperties(unsortedElements: HandledNodeType[]) {
     sortedElements.splice(+index, 0, node)
   }
 
+  // réinjection des object method
+  for (let i = 0; i < unsortedElements.length; i++) {
+    if (unsortedElements[i].type === 'ObjectMethod') {
+      sortedElements.splice(i, 0, unsortedElements[i])
+    }
+  }
+
   return sortedElements
+}
+
+// ! pas sûr que ce soit judicieux de faire ça...
+function adjustLineNumbers(ast) {
+  let previousNode: any | null = null
+
+  traverse(ast, {
+    enter(path: any) {
+      if (['ReturnStatement', 'IfStatement', 'FunctionDeclaration'].includes(path.node.type)) {
+        path.node.loc.start.line += 10
+        path.node.loc.end.line += 10
+      }
+
+      previousNode = path.node
+    },
+  })
 }
 
 /**
@@ -295,6 +325,8 @@ export function preprocessor(code: string, options: any) {
     plugins: ['jsx', 'typescript'],
     sourceType: 'module',
   })
+
+  adjustLineNumbers(ast)
 
   traverse(ast, {
     // éléments d'un objet (ex: déclaration de variable, retour de fonction)
@@ -331,8 +363,8 @@ export function preprocessor(code: string, options: any) {
   // DONE: ajouter gestion du spread operator
   // DONE: bien gérer les commentaires
   // DONE: gérer une map (mondial relay -> api_v1/lib/rules)
-  // DONE: gérer le problème de suppression des retours à la ligne... (retainLines à true mais ça fait bugger)
   // DONE un espace est inséré après un commentaire bloc
+  // TODO: gérer le problème de suppression des retours à la ligne... (retainLines à true mais ça fait bugger)
   // TODO: les types Typescript disparaissent après le traitement (mondial relay -> api_v1/index)
   // TODO: les interfaces Typescript
   // TODO: désactiver le sorting sur les objets avec des indices (mondial relay -> api_v1/lib/statusCodes)

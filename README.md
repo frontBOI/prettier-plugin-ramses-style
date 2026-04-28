@@ -42,9 +42,92 @@ and then print out that data structure in a "pretty" style.
 
 ‼️ A prettier plugin **MUST** be developped in `CommonJS`.
 
+## Code styling: cascading order
+
+To keep code visually consistent, apply a cascading order for:
+
+- JSX props
+- object declarations
+- object destructuring
+- object parameters in functions
+- TypeScript `type` and `interface` fields
+- TypeScript `enum` members
+
+`Cascading order` means entries are sorted by identifier length, from shortest to longest.
+
+If two identifiers have the same length, sort them alphabetically.
+
+Good:
+
+```tsx
+<PromptCard id={id} icon={icon} title={title} isPinned={isPinned} />
+```
+
+```ts
+const promptCardProps = {
+  id,
+  icon,
+  title,
+  isPinned,
+}
+```
+
+```ts
+const { id, icon, title, isPinned } = promptCardProps
+```
+
+```ts
+function renderPrompt({
+  id,
+  icon,
+  title,
+  isPinned,
+}: {
+  id: string
+  icon: ReactNode
+  title: string
+  isPinned: boolean
+}) {
+  return `${id}:${title}`
+}
+```
+
+```ts
+type PromptCardProps = {
+  id: string
+  icon: ReactNode
+  title: string
+  isPinned: boolean
+}
+```
+
+```ts
+enum PromptCardAction {
+  Pin = 'pin',
+  Open = 'open',
+  Archive = 'archive',
+}
+```
+
+Bad:
+
+```tsx
+<PromptCard isPinned={isPinned} id={id} title={title} icon={icon} />
+```
+
+```ts
+const promptCardProps = {
+  title,
+  id,
+  isPinned,
+  icon,
+}
+```
+
 # Testing
 
 You can try this package on a file using this custom script:
+
 ```sh
 npm run prettify -- test/fixtures/comments.js
 ```

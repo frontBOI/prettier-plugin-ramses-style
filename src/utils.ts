@@ -1,4 +1,12 @@
-import { ArrayExpression, JSXAttribute, NumericLiteral, ObjectProperty, StringLiteral, Identifier } from '@babel/types'
+import {
+  ArrayExpression,
+  JSXAttribute,
+  NumericLiteral,
+  ObjectProperty,
+  StringLiteral,
+  Identifier,
+  ObjectMethod,
+} from '@babel/types'
 
 const traverse = require('@babel/traverse').default
 
@@ -9,6 +17,7 @@ export type HandledNodeType =
   | StringLiteral
   | NumericLiteral
   | Identifier
+  | ObjectMethod
 
 /**
  * Permet de visualiser simplement une propriété et afficher les informations importantes pour ce projet
