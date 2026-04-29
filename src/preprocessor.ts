@@ -78,7 +78,7 @@ function computePropertyLength(property: HandledNodeType) {
 function shiftDescendantLines(node: any, delta: number) {
   if (!node || delta === 0) return
 
-  const children = node.properties || node.elements
+  const children = node.properties || node.elements || node.members || node.body
   if (!Array.isArray(children)) return
 
   for (const child of children) {
@@ -95,6 +95,10 @@ function shiftDescendantLines(node: any, delta: number) {
       child.value.loc.start.line += delta
       child.value.loc.end.line += delta
       shiftDescendantLines(child.value, delta)
+    }
+    if (child.typeAnnotation?.loc) {
+      child.typeAnnotation.loc.start.line += delta
+      child.typeAnnotation.loc.end.line += delta
     }
   }
 }
@@ -120,6 +124,11 @@ function updateNodeLoc(node: any, startLine: number, endLine: number) {
     node.value.loc.start.line = startLine
     node.value.loc.end.line = endLine
     shiftDescendantLines(node.value, delta)
+  }
+
+  if (node.typeAnnotation?.loc) {
+    node.typeAnnotation.loc.start.line += delta
+    node.typeAnnotation.loc.end.line += delta
   }
 }
 
@@ -374,6 +383,18 @@ export function preprocessor(code: string, options: any) {
     ObjectPattern(path: any) {
       const sortedElements = sortProperties(path.node.properties as ObjectProperty[])
       path.node.properties = sortedElements
+    },
+
+    // TypeScript interfaces
+    TSInterfaceBody(path: any) {
+      const sortedElements = sortProperties(path.node.body)
+      path.node.body = sortedElements
+    },
+
+    // TypeScript type literals (e.g. type Foo = { ... })
+    TSTypeLiteral(path: any) {
+      const sortedElements = sortProperties(path.node.members)
+      path.node.members = sortedElements
     },
 
     // JSX props

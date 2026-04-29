@@ -1,6 +1,23 @@
 interface Test {
-  name: string
   age: number
+  name: string
+}
+
+interface User {
+  id: number
+  age: number
+  email: string
+  lastName: string
+  firstName: string
+  address: { zip: string; city: string; street: string }
+}
+
+type Config = {
+  apiUrl: string
+  debug: boolean
+  timeout: number
+  retryCount: number
+  longPropertyNameHere: string
 }
 
 // @ts-ignore
