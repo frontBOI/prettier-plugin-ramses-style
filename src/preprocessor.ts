@@ -71,7 +71,7 @@ function computePropertyLength(property: HandledNodeType) {
       return 0
 
     default:
-      throw `Impossible de calculer la taille de la propriété "${(property as any).type}"`
+      return getLength((property as any).start, (property as any).end)
   }
 }
 
