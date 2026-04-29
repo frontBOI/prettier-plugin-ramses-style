@@ -89,6 +89,7 @@ function manyObjectProperties() {
       return b
     },
   }
+
   const {
     b,
     bb,
@@ -106,6 +107,7 @@ function manyObjectProperties() {
     bbbbbbbbbbbbbb,
     bbbbbbbbbbbbbbb,
   } = useLocalStorage()
+
   return {
     a,
     aa,

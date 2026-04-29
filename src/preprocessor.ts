@@ -349,12 +349,6 @@ export function preprocessor(code: string, options: any) {
       path.node.properties = sortedElements
     },
 
-    // les éléments d'un tableau
-    ArrayExpression(path: any) {
-      const sortedElements = sortProperties(path.node.elements as ArrayExpression[])
-      path.node.elements = sortedElements
-    },
-
     // JSX props
     JSXOpeningElement(path: any) {
       const sortedAttributes = sortProperties(path.node.attributes as JSXAttribute[])
