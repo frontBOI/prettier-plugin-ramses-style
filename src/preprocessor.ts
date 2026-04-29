@@ -75,6 +75,30 @@ function computePropertyLength(property: HandledNodeType) {
   }
 }
 
+function shiftDescendantLines(node: any, delta: number) {
+  if (!node || delta === 0) return
+
+  const children = node.properties || node.elements
+  if (!Array.isArray(children)) return
+
+  for (const child of children) {
+    if (!child) continue
+    if (child.loc) {
+      child.loc.start.line += delta
+      child.loc.end.line += delta
+    }
+    if (child.key?.loc) {
+      child.key.loc.start.line += delta
+      child.key.loc.end.line += delta
+    }
+    if (child.value?.loc) {
+      child.value.loc.start.line += delta
+      child.value.loc.end.line += delta
+      shiftDescendantLines(child.value, delta)
+    }
+  }
+}
+
 /**
  * Permet de mettre à jour la loc d'un nœud et de ses enfants.
  * @param node le nœud dont on veut mettre à jour la loc
@@ -82,6 +106,8 @@ function computePropertyLength(property: HandledNodeType) {
  * @param endLine nouvelle ligne de fin
  */
 function updateNodeLoc(node: any, startLine: number, endLine: number) {
+  const delta = startLine - node.loc.start.line
+
   node.loc.start.line = startLine
   node.loc.end.line = endLine
 
@@ -93,6 +119,7 @@ function updateNodeLoc(node: any, startLine: number, endLine: number) {
   if (node.value?.loc) {
     node.value.loc.start.line = startLine
     node.value.loc.end.line = endLine
+    shiftDescendantLines(node.value, delta)
   }
 }
 
