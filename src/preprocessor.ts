@@ -313,6 +313,51 @@ function restoreLeadingCommentsInCode(code: string) {
   return nextCode
 }
 
+function escapeRegExp(value: string) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+}
+
+function collectTypeAliasesWithBlankLine(ast: any) {
+  const result: string[] = []
+  const programBody = ast?.program?.body || []
+
+  for (let i = 1; i < programBody.length; i++) {
+    const previousNode = programBody[i - 1]
+    const currentNode = programBody[i]
+    const declaration = currentNode.type === 'ExportNamedDeclaration' ? currentNode.declaration : currentNode
+
+    if (!declaration || declaration.type !== 'TSTypeAliasDeclaration') continue
+    if (!declaration.id?.name) continue
+    if (!previousNode?.loc || !currentNode?.loc) continue
+
+    const hasBlankLineBefore = currentNode.loc.start.line - previousNode.loc.end.line > 1
+    if (hasBlankLineBefore) {
+      result.push(declaration.id.name)
+    }
+  }
+
+  return result
+}
+
+function restoreBlankLinesBeforeTypeAliases(code: string, typeAliasNames: string[]) {
+  if (typeAliasNames.length === 0) return code
+
+  const lines = code.split('\n')
+  for (const name of typeAliasNames) {
+    const typePattern = new RegExp(`^\\s*(export\\s+)?type\\s+${escapeRegExp(name)}\\b`)
+
+    for (let i = 1; i < lines.length; i++) {
+      if (!typePattern.test(lines[i])) continue
+      if (lines[i - 1].trim() === '') break
+
+      lines.splice(i, 0, '')
+      break
+    }
+  }
+
+  return lines.join('\n')
+}
+
 /**
  * Permet de trier les propriétés d'un arbre AST par ordre de longueur croissante.
  * @param unsortedElements les nœuds AST à trier
@@ -408,6 +453,7 @@ export function preprocessor(code: string, options: any) {
     plugins: ['jsx', 'typescript'],
     sourceType: 'module',
   })
+  const typeAliasesWithBlankLine = collectTypeAliasesWithBlankLine(ast)
 
   traverse(ast, {
     // éléments d'un objet (ex: déclaration de variable, retour de fonction)
@@ -446,5 +492,6 @@ export function preprocessor(code: string, options: any) {
   }).code
 
   const restoredLeadingCommentsCode = restoreLeadingCommentsInCode(newCode)
-  return restoredLeadingCommentsCode.replace(/\n{3,}/g, '\n\n')
+  const restoredBlankLinesCode = restoreBlankLinesBeforeTypeAliases(restoredLeadingCommentsCode, typeAliasesWithBlankLine)
+  return restoredBlankLinesCode.replace(/\n{3,}/g, '\n\n')
 }

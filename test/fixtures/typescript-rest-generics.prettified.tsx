@@ -20,6 +20,7 @@ const typographyVariants = cva('text-foreground', {
     },
   },
 })
+
 type TypographyProps = HTMLAttributes<HTMLElement> &
   VariantProps<typeof typographyVariants> & {
     bold?: boolean
