@@ -17,7 +17,8 @@ const commentsOrderShouldBePreserved = {
 
   field31: () => {
     console.log('line')
-  }, // field30
+  },
+  // field30
   field30: () => {
     console.log('yo thats a function how is it going to react')
   },
@@ -29,7 +30,8 @@ const commentsOrderShouldBePreserved = {
     console.log('line')
     console.log('line')
     console.log('line')
-  }, // field34
+  },
+  // field34
   field34: () => {
     console.log('line')
     console.log('line')
@@ -51,6 +53,5 @@ const commentsOrderShouldBePreserved = {
 
     return b
   },
-
   // commentaire après field35
 }

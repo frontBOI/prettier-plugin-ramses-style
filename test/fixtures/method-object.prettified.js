@@ -4,12 +4,22 @@ export default factories.createCoreService('api::beat.beat', ({ strapi }) => ({
 
     const availableBasicBeats = await strapi.query('api::beat.beat').findMany({
       populate: ['image', 'audioFile'],
-      where: { placement: null, canBeSold: true, sentToProspects: false, loweredBitrateSize: { $ne: null } },
+      where: {
+        placement: null,
+        canBeSold: true,
+        sentToProspects: false,
+        loweredBitrateSize: { $ne: null },
+      },
     })
 
     const availableAgainBeats = await strapi.query('api::beat.beat').findMany({
       populate: ['image', 'audioFile'],
-      where: { placement: null, canBeSold: true, can_be_sent_again: true, loweredBitrateSize: { $ne: null } },
+      where: {
+        placement: null,
+        canBeSold: true,
+        can_be_sent_again: true,
+        loweredBitrateSize: { $ne: null },
+      },
     })
 
     const availableBeats = [...availableBasicBeats, ...availableAgainBeats]

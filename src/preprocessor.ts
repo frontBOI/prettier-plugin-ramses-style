@@ -278,6 +278,41 @@ function updateLocWithComments(nodes: any[]) {
   }
 }
 
+const LEADING_COMMENT_MARKER_PREFIX = '__RAMSES_LEADING_COMMENT__'
+
+function tagLeadingComments(nodes: any[]) {
+  for (let i = 0; i < nodes.length; i++) {
+    const currentNode = nodes[i]
+    if (!currentNode.leadingComments?.length) continue
+
+    const previousNode = nodes[i - 1]
+    const hasBlankLineBefore =
+      !!previousNode && currentNode.leadingComments[0].loc.start.line - previousNode.loc.end.line > 1
+    const marker = `${LEADING_COMMENT_MARKER_PREFIX}${hasBlankLineBefore ? '2' : '1'}__`
+
+    for (const comment of currentNode.leadingComments) {
+      if (comment.type !== 'CommentLine') continue
+      if (comment.value.includes(LEADING_COMMENT_MARKER_PREFIX)) continue
+
+      comment.value = `${marker}${comment.value}`
+    }
+  }
+}
+
+function restoreLeadingCommentsInCode(code: string) {
+  const inlineTaggedCommentPattern = /([,}\]])\s*\/\/\s*__RAMSES_LEADING_COMMENT__([12])__([^\n]*)\n([ \t]*)([^\n]+)/g
+
+  let nextCode = code.replace(inlineTaggedCommentPattern, (_, separator, level, commentText, indent, nextLine) => {
+    const blankLine = level === '2' ? '\n' : ''
+    return `${separator}\n${blankLine}${indent}//${commentText}\n${indent}${nextLine}`
+  })
+
+  nextCode = nextCode.replace(/([^\n])\n([ \t]*)\/\/\s*__RAMSES_LEADING_COMMENT__2__/g, '$1\n\n$2// __RAMSES_LEADING_COMMENT__2__')
+  nextCode = nextCode.replace(/\/\/\s*__RAMSES_LEADING_COMMENT__[12]__/g, '//')
+
+  return nextCode
+}
+
 /**
  * Permet de trier les propriétés d'un arbre AST par ordre de longueur croissante.
  * @param unsortedElements les nœuds AST à trier
@@ -314,33 +349,35 @@ function colocateLeadingCommentsOfMultilineNodes(nodes: any[]) {
   }
 }
 
-function sortProperties(unsortedElements: HandledNodeType[]) {
+function sortProperties(unsortedElements: any[]) {
   correctEndLineComments(unsortedElements)
+  tagLeadingComments(unsortedElements)
 
-  // sauvegarde de l'index des spread elements pour les remettre à la même place ensuite
-  const spreadElements: Record<string, HandledNodeType> = {}
+  // sauvegarde de l'index des éléments non-triables pour les remettre à la même place ensuite
+  const fixedPositionNodes: Record<string, any> = {}
   for (let i = 0; i < unsortedElements.length; i++) {
     const currentObject = unsortedElements[i]
-    if (isSpreadElement(currentObject)) {
-      spreadElements[i] = currentObject
+    if (
+      isSpreadElement(currentObject) ||
+      currentObject.type === 'RestElement' ||
+      currentObject.type === 'JSXSpreadAttribute'
+    ) {
+      fixedPositionNodes[i] = currentObject
     }
   }
 
   // tri par longueur croissante
-  const sortedElements = JSON.parse(
-    JSON.stringify(
-      unsortedElements
-        .filter(e => !Object.values(spreadElements).includes(e) && e.type !== 'ObjectMethod')
-        .sort(sortByLength),
-    ),
-  )
+  const sortedElements = unsortedElements
+    .filter(e => !Object.values(fixedPositionNodes).includes(e) && e.type !== 'ObjectMethod')
+    .slice()
+    .sort(sortByLength)
 
   updateLoc(sortedElements, unsortedElements[0])
   colocateLeadingCommentsOfMultilineNodes(sortedElements)
   updateLocWithComments(sortedElements)
 
-  // réinsertion des spread elements à leur place
-  for (const [index, node] of Object.entries(spreadElements)) {
+  // réinsertion des éléments non-triables à leur place
+  for (const [index, node] of Object.entries(fixedPositionNodes)) {
     sortedElements.splice(+index, 0, node)
   }
 
@@ -408,5 +445,6 @@ export function preprocessor(code: string, options: any) {
     retainLines: true,
   }).code
 
-  return newCode.replace(/\n{3,}/g, '\n\n')
+  const restoredLeadingCommentsCode = restoreLeadingCommentsInCode(newCode)
+  return restoredLeadingCommentsCode.replace(/\n{3,}/g, '\n\n')
 }
