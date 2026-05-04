@@ -100,6 +100,15 @@ function shiftDescendantLines(node: any, delta: number) {
       child.typeAnnotation.loc.start.line += delta
       child.typeAnnotation.loc.end.line += delta
     }
+    if (child.id?.loc) {
+      child.id.loc.start.line += delta
+      child.id.loc.end.line += delta
+    }
+    if (child.initializer?.loc) {
+      child.initializer.loc.start.line += delta
+      child.initializer.loc.end.line += delta
+      shiftDescendantLines(child.initializer, delta)
+    }
   }
 }
 
@@ -129,6 +138,17 @@ function updateNodeLoc(node: any, startLine: number, endLine: number) {
   if (node.typeAnnotation?.loc) {
     node.typeAnnotation.loc.start.line += delta
     node.typeAnnotation.loc.end.line += delta
+  }
+
+  if (node.id?.loc) {
+    node.id.loc.start.line = startLine
+    node.id.loc.end.line = endLine
+  }
+
+  if (node.initializer?.loc) {
+    node.initializer.loc.start.line = startLine
+    node.initializer.loc.end.line = endLine
+    shiftDescendantLines(node.initializer, delta)
   }
 }
 
@@ -476,6 +496,12 @@ export function preprocessor(code: string, options: any) {
 
     // TypeScript type literals (e.g. type Foo = { ... })
     TSTypeLiteral(path: any) {
+      const sortedElements = sortProperties(path.node.members)
+      path.node.members = sortedElements
+    },
+
+    // TypeScript enums
+    TSEnumDeclaration(path: any) {
       const sortedElements = sortProperties(path.node.members)
       path.node.members = sortedElements
     },
