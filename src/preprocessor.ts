@@ -191,6 +191,41 @@ function correctEndLineComments(nodes: any[]) {
   }
 }
 
+function isSameComment(commentA: any, commentB: any) {
+  if (!commentA || !commentB) return false
+  if (commentA === commentB) return true
+
+  return (
+    commentA.type === commentB.type &&
+    commentA.value === commentB.value &&
+    commentA.loc?.start.line === commentB.loc?.start.line &&
+    commentA.loc?.end.line === commentB.loc?.end.line
+  )
+}
+
+/**
+ * Babel peut dupliquer un même commentaire: trailing sur le nœud précédent et leading sur le suivant.
+ * Ce doublon provoque un décalage de lignes appliqué deux fois ensuite.
+ * On retire la version trailing quand elle est identique à une leading du nœud suivant.
+ * @param nodes les noeuds à normaliser
+ */
+function removeDuplicatedBoundaryComments(nodes: any[]) {
+  for (let i = 1; i < nodes.length; i++) {
+    const previousNode = nodes[i - 1]
+    const currentNode = nodes[i]
+
+    if (!previousNode.trailingComments?.length || !currentNode.leadingComments?.length) continue
+
+    previousNode.trailingComments = previousNode.trailingComments.filter(
+      (trailingComment: any) => !currentNode.leadingComments.some((leadingComment: any) => isSameComment(trailingComment, leadingComment)),
+    )
+
+    if (previousNode.trailingComments.length === 0) {
+      delete previousNode.trailingComments
+    }
+  }
+}
+
 /**
  * Synchronise les numéros de ligne des commentaires d'un nœud par rapport à la ligne courante de ce nœud.
  * @param node le nœud dont on souhaite mettre à jour les commentaires
@@ -414,9 +449,27 @@ function colocateLeadingCommentsOfMultilineNodes(nodes: any[]) {
   }
 }
 
+function isTypeScriptNode(node: any) {
+  return typeof node?.type === 'string' && node.type.startsWith('TS')
+}
+
 function sortProperties(unsortedElements: any[]) {
-  correctEndLineComments(unsortedElements)
-  tagLeadingComments(unsortedElements)
+  const isTypeScriptMembersList = unsortedElements.every(isTypeScriptNode)
+  const isInlineTypeScriptMembersList =
+    isTypeScriptMembersList &&
+    unsortedElements.length > 0 &&
+    unsortedElements.every(
+      node => node?.loc?.start?.line === unsortedElements[0]?.loc?.start?.line && getNodeNbLines(node) === 0,
+    )
+  const shouldNormalizeCommentsAndLoc = !isInlineTypeScriptMembersList
+
+  // Les nœuds TypeScript inline (ex: Promise<{ ... }>) sont sensibles aux manipulations de loc.
+  // On évite cette phase pour ne pas perdre des annotations de types lors du print.
+  if (shouldNormalizeCommentsAndLoc) {
+    correctEndLineComments(unsortedElements)
+    removeDuplicatedBoundaryComments(unsortedElements)
+    tagLeadingComments(unsortedElements)
+  }
 
   // sauvegarde de l'index des éléments non-triables pour les remettre à la même place ensuite
   const fixedPositionNodes: Record<string, any> = {}
@@ -437,9 +490,11 @@ function sortProperties(unsortedElements: any[]) {
     .slice()
     .sort(sortByLength)
 
-  updateLoc(sortedElements, unsortedElements[0])
-  colocateLeadingCommentsOfMultilineNodes(sortedElements)
-  updateLocWithComments(sortedElements)
+  if (shouldNormalizeCommentsAndLoc) {
+    updateLoc(sortedElements, unsortedElements[0])
+    colocateLeadingCommentsOfMultilineNodes(sortedElements)
+    updateLocWithComments(sortedElements)
+  }
 
   // réinsertion des éléments non-triables à leur place
   for (const [index, node] of Object.entries(fixedPositionNodes)) {
