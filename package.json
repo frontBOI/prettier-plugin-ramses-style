@@ -1,6 +1,6 @@
 {
   "name": "@frontboi/prettier-plugin-ramses-style",
-  "version": "1.2.6",
+  "version": "1.2.14",
   "main": "./dist/index.js",
   "repository": "https://github.com/frontBOI/prettier-plugin-ramses-style",
   "description": "Pretty your javascript and typescript project to Ramses style.",
@@ -16,11 +16,11 @@
     "prepublishOnly": "npm run build"
   },
   "dependencies": {
-    "@babel/generator": "^7.25.6",
-    "@babel/parser": "^7.25.6",
-    "@babel/traverse": "^7.25.6",
+    "@babel/generator": "^7.29.1",
+    "@babel/parser": "^7.29.3",
+    "@babel/traverse": "^7.29.0",
     "@babel/types": "^7.25.6",
-    "prettier": "^3.3.3"
+    "prettier": "^3.8.3"
   },
   "devDependencies": {
     "eslint": "^9.9.1",

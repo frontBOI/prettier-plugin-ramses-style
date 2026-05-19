@@ -372,6 +372,100 @@ function escapeRegExp(value: string) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 }
 
+// Surrogate pair regex: matches a single non-BMP character (high surrogate + low surrogate)
+const SURROGATE_PAIR_RE = /[\uD800-\uDBFF][\uDC00-\uDFFF]/g
+
+// Private Use Area (BMP) characters are safer placeholders than control chars.
+// They are still 1 code unit each, so a 2-char placeholder preserves surrogate-pair length.
+const PRIVATE_USE_START = 0xe000
+const PRIVATE_USE_END = 0xf8ff
+const PRIVATE_USE_RANGE_SIZE = PRIVATE_USE_END - PRIVATE_USE_START + 1
+
+function buildPrivateUsePlaceholder(index: number) {
+  const firstOffset = index % PRIVATE_USE_RANGE_SIZE
+  const secondOffset = Math.floor(index / PRIVATE_USE_RANGE_SIZE)
+
+  if (secondOffset >= PRIVATE_USE_RANGE_SIZE) {
+    throw new Error('Too many unique non-BMP characters to protect')
+  }
+
+  const first = String.fromCharCode(PRIVATE_USE_START + firstOffset)
+  const second = String.fromCharCode(PRIVATE_USE_START + secondOffset)
+  return first + second
+}
+
+function toUnicodeEscape(value: string) {
+  return [...value].map(c => '\\u' + c.charCodeAt(0).toString(16).padStart(4, '0')).join('')
+}
+
+/**
+ * Replaces each unique non-BMP character in the source text with a same-length (2 char) placeholder.
+ * This preserves all positions in the AST since each surrogate pair (2 code units) is replaced with 2 code units.
+ * Uses private-use BMP chars to avoid control-character corruption in downstream tooling.
+ */
+function protectNonBMPInSource(code: string) {
+  const charToPlaceholder = new Map<string, string>()
+  const placeholderToChar = new Map<string, string>()
+  let counter = 0
+
+  const result = code.replace(SURROGATE_PAIR_RE, (match) => {
+    let placeholder = charToPlaceholder.get(match)
+    if (!placeholder) {
+      placeholder = buildPrivateUsePlaceholder(counter)
+      while (code.includes(placeholder) || placeholderToChar.has(placeholder)) {
+        counter++
+        placeholder = buildPrivateUsePlaceholder(counter)
+      }
+      charToPlaceholder.set(match, placeholder)
+      placeholderToChar.set(placeholder, match)
+      counter++
+    }
+    return placeholder
+  })
+
+  return { code: result, map: placeholderToChar }
+}
+
+function restoreNonBMPInOutput(code: string, map: Map<string, string>) {
+  let result = code
+  for (const [placeholder, original] of map) {
+    // Handle raw placeholders (when extra.raw is preserved)
+    result = result.split(placeholder).join(original)
+    // Handle escaped unicode forms (when extra.raw was lost).
+    const unicodeEscaped = toUnicodeEscape(placeholder)
+    result = result.replace(new RegExp(escapeRegExp(unicodeEscaped), 'gi'), original)
+  }
+  return result
+}
+
+function fixEscapedSurrogatePairs(code: string) {
+  return code.replace(/\\u([dD][89abAB][0-9a-fA-F]{2})\\u([dD][c-fC-F][0-9a-fA-F]{2})/g, (_, high, low) => {
+    const highCode = parseInt(high, 16)
+    const lowCode = parseInt(low, 16)
+    return String.fromCharCode(highCode, lowCode)
+  })
+}
+
+function hasUnpairedSurrogates(text: string) {
+  for (let i = 0; i < text.length; i++) {
+    const code = text.charCodeAt(i)
+    const isHigh = code >= 0xd800 && code <= 0xdbff
+    const isLow = code >= 0xdc00 && code <= 0xdfff
+
+    if (isHigh) {
+      const next = text.charCodeAt(i + 1)
+      const nextIsLow = next >= 0xdc00 && next <= 0xdfff
+      if (!nextIsLow) return true
+      i++
+      continue
+    }
+
+    if (isLow) return true
+  }
+
+  return false
+}
+
 function collectTypeAliasesWithBlankLine(ast: any) {
   const result: string[] = []
   const programBody = ast?.program?.body || []
@@ -524,7 +618,9 @@ function sortProperties(unsortedElements: any[]) {
  * @returns le code modifié
  */
 export function preprocessor(code: string, options: any) {
-  const ast = babelParser.parse(code, {
+  const { code: safeCode, map: nonBMPMap } = protectNonBMPInSource(code)
+
+  const ast = babelParser.parse(safeCode, {
     plugins: ['jsx', 'typescript'],
     sourceType: 'module',
   })
@@ -572,7 +668,16 @@ export function preprocessor(code: string, options: any) {
     retainLines: true,
   }).code
 
-  const restoredLeadingCommentsCode = restoreLeadingCommentsInCode(newCode)
+  const fixedEscapesCode = fixEscapedSurrogatePairs(newCode)
+  const restoredLeadingCommentsCode = restoreLeadingCommentsInCode(fixedEscapesCode)
   const restoredBlankLinesCode = restoreBlankLinesBeforeTypeAliases(restoredLeadingCommentsCode, typeAliasesWithBlankLine)
-  return restoredBlankLinesCode.replace(/\n{3,}/g, '\n\n')
+  const cleanedCode = restoredBlankLinesCode.replace(/\n{3,}/g, '\n\n')
+  const restoredCode = restoreNonBMPInOutput(cleanedCode, nonBMPMap)
+
+  // Safety net: never emit potentially corrupted unicode output.
+  if ((restoredCode.includes('�') && !code.includes('�')) || hasUnpairedSurrogates(restoredCode)) {
+    return code
+  }
+
+  return restoredCode
 }
