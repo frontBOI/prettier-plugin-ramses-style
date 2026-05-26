@@ -132,6 +132,16 @@ You can try this package on a file using this custom script:
 npm run prettify -- test/fixtures/comments.js
 ```
 
+# Disable plugin for one file
+
+If you need to bypass this plugin for a specific file, add this comment at the very top:
+
+```js
+// @ramses-style-disable
+```
+
+When this marker is present in the first file comment, the plugin returns the source unchanged for that file.
+
 # Useful links
 
 [AST explorer](https://astexplorer.net)

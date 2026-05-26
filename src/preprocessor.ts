@@ -466,6 +466,23 @@ function hasUnpairedSurrogates(text: string) {
   return false
 }
 
+const DISABLE_MARKER = '@ramses-style-disable'
+
+function hasDisableMarkerInHeaderComment(code: string) {
+  let source = code.replace(/^\uFEFF/, '')
+
+  // Ignore shebang when present.
+  if (source.startsWith('#!')) {
+    const firstLineBreak = source.indexOf('\n')
+    source = firstLineBreak === -1 ? '' : source.slice(firstLineBreak + 1)
+  }
+
+  const headerCommentMatch = source.match(/^\s*(\/\/[^\n]*|\/\*[\s\S]*?\*\/)/)
+  if (!headerCommentMatch) return false
+
+  return headerCommentMatch[1].toLowerCase().includes(DISABLE_MARKER)
+}
+
 function collectTypeAliasesWithBlankLine(ast: any) {
   const result: string[] = []
   const programBody = ast?.program?.body || []
@@ -618,6 +635,10 @@ function sortProperties(unsortedElements: any[]) {
  * @returns le code modifié
  */
 export function preprocessor(code: string, options: any) {
+  if (hasDisableMarkerInHeaderComment(code)) {
+    return code
+  }
+
   const { code: safeCode, map: nonBMPMap } = protectNonBMPInSource(code)
 
   const ast = babelParser.parse(safeCode, {
